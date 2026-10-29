@@ -4,6 +4,7 @@
 // description (untrusted) to a context file for the agent.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { MARKER } from '../../../.claude/skills/test-report/scripts/render-report.mjs';
 import { SHA, gh, ghJson, output, required } from './gh.mjs';
 
 const repo = required('REPO');
@@ -13,7 +14,13 @@ if (!Number.isInteger(number) || number <= 0) throw new Error('PR_NUMBER must be
 
 const pr = ghJson(['api', `repos/${repo}/pulls/${number}`]);
 const labels = pr.labels.map((label) => label.name);
-const before = SHA.test(process.env.EVENT_BEFORE ?? '') && !/^0+$/.test(process.env.EVENT_BEFORE) ? process.env.EVENT_BEFORE : '';
+// Incremental skips compare against the last head the agent fully analyzed. That SHA is
+// recorded in our own report comment only after a complete run (agent + verification), so
+// a cancelled or failed run never counts as "already analyzed" (unlike event.before).
+const comments = ghJson(['api', '--paginate', '--slurp', `repos/${repo}/issues/${number}/comments?per_page=100`]).flat();
+const report = comments.find((c) => c.user?.type === 'Bot' && String(c.body).startsWith(MARKER));
+const analyzed = /<!-- analyzed-head: ([0-9a-f]{40}) -->/.exec(report?.body ?? '')?.[1] ?? '';
+const before = process.env.EVENT_NAME === 'pull_request' ? analyzed : '';
 
 let skip = '';
 if (pr.state !== 'open') skip = 'Pull request is not open.';
@@ -21,6 +28,7 @@ else if (pr.head.repo?.full_name !== repo) skip = 'Pull requests from forks are 
 else if (pr.draft) skip = 'Draft pull request — mark it ready for review to run the test agent.';
 else if (labels.includes('test-agent:skip')) skip = 'Skipped by the test-agent:skip label.';
 else if (pr.head.ref.startsWith('test-agent/')) skip = 'Pull request was created by the test agent.';
+else if (pr.user?.type === 'Bot') skip = `Pull requests by bots (${pr.user.login}) are not processed: they run without secrets.`;
 else if (gh(['api', `repos/${repo}/contents/.claude/agents/unit-test-agent.md?ref=${pr.base.sha}`, '--silent'], { allowFailure: true }) === null) {
   skip = 'The test agent is not installed on the base branch yet.';
 }

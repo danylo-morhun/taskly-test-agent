@@ -93,6 +93,12 @@ describe('test runs', () => {
     assert.equal(result.success, true);
     assert.match(result.thresholdFailure, /does not meet threshold/);
   });
+  it('treats an unexplained non-zero exit (e.g. unhandled errors) as a failure', () => {
+    const result = summarize({ success: false, numTotalTests: 1, numPassedTests: 1, numFailedTests: 0, testResults: [] }, { code: 1, stdout: 'Vitest caught 1 unhandled error during the test run.', stderr: '', durationMs: 1 });
+    assert.equal(result.success, false);
+    assert.equal(result.thresholdFailure, null);
+    assert.match(result.failures[0].test, /exited with code 1/);
+  });
   it('flags tests whose outcome differs across runs', () => {
     assert.deepEqual(findFlaky([{ statuses: { a: 'passed', b: 'passed' } }, { statuses: { a: 'failed', b: 'passed' } }]), ['a']);
   });
@@ -146,6 +152,9 @@ describe('report', () => {
     assert.ok(body.includes('`test-impact-analysis`'));
     assert.ok(!body.includes('<b>hi</b>'));
     assert.ok(!body.includes('@someone'));
+    assert.ok(!body.includes('analyzed-head'));
+    assert.ok(render({ detect, report, verification, analyzedHead: 'a'.repeat(40) }).includes(`<!-- analyzed-head: ${'a'.repeat(40)} -->`));
+    assert.ok(!render({ detect, report, verification, analyzedHead: 'x; <script>' }).includes('analyzed-head'));
   });
   it('explains threshold-only failures and skipped mutation runs', () => {
     const failing = structuredClone(verification);

@@ -56,13 +56,15 @@ jobs:
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
-          sparse-checkout: .github/scripts
+          sparse-checkout: |
+            .github/scripts
+            .claude
       - id: pr
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr }}
-          EVENT_BEFORE: ${{ github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
           OUT_DIR: ${{ runner.temp }}/context
         run: |
           # Scripts come from the default branch, never from the PR. Before the agent
@@ -171,6 +173,16 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: "*/package-lock.json"
+      - name: Install subprocess sandbox (bubblewrap)
+        # Required by CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: commands Claude runs get a scrubbed
+        # environment and their own PID namespace, so PR code cannot read the token.
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends bubblewrap socat
+          # Ubuntu 24.04+ restricts unprivileged user namespaces via AppArmor.
+          if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
       - name: Install dependencies (no lifecycle scripts)
         env:
           WORKSPACES: ${{ needs.detect.outputs.workspaces }}
@@ -179,7 +191,12 @@ jobs:
             case "$ws" in backend|frontend) ;; *) echo "unexpected workspace $ws"; exit 1 ;; esac
             npm ci --prefix "$ws" --ignore-scripts --no-audit --no-fund
           done
-          if [ -d backend/node_modules ]; then (cd backend && npx --no-install prisma generate); fi
+          # prisma generate evaluates the PR's prisma.config.ts. Run it in its own PID namespace,
+          # killed with the sandbox, so no PR process can outlive this step and wait for the token.
+          if [ -d backend/node_modules ]; then
+            bwrap --dev-bind / / --unshare-pid --die-with-parent --new-session \
+              sh -c 'cd backend && npx --no-install prisma generate'
+          fi
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: test-agent-{context,detect}
@@ -199,16 +216,6 @@ jobs:
           else
             git checkout -q -- . && git clean -fdq -e .test-agent -e node_modules
             echo "applied=false" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Install subprocess sandbox (bubblewrap)
-        # Required by CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: commands Claude runs get a scrubbed
-        # environment and their own PID namespace, so PR code cannot read the token.
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq --no-install-recommends bubblewrap socat
-          # Ubuntu 24.04+ restricts unprivileged user namespaces via AppArmor.
-          if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
-            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           fi
       - name: Run unit-test-agent
         id: agent
@@ -243,7 +250,6 @@ jobs:
         run: |
           # Outside the checkout, so run output can never end up in the proposed patch.
           mkdir -p "$OUT"
-          cp .test-agent/detect.json "$OUT/"
           [ -f .test-agent/report.json ] && cp .test-agent/report.json "$OUT/" || echo "::warning::Agent did not write a report"
           if [ -n "$EXECUTION_FILE" ] && [ -f "$EXECUTION_FILE" ]; then
             node .claude/skills/test-report/scripts/summarize-run.mjs --execution-file "$EXECUTION_FILE" --json-out "$OUT/run.json" > /dev/null
@@ -251,6 +257,8 @@ jobs:
           # The proposal = every working-tree change except the agent config the action restored
           # from the base branch. Ignored paths (.test-agent/, .claude-pr/) are never staged; no
           # exclude pathspecs, since git exits non-zero when one names an ignored path.
+          # Drop zero-byte untracked files at the repo root (sandbox mount placeholders).
+          git ls-files --others --exclude-standard | grep -v / | while IFS= read -r f; do [ -s "$f" ] || rm -f -- "$f"; done
           git add -A
           git restore --staged -- .claude 2>/dev/null || true
           git diff --cached --binary HEAD > "$OUT/tests.patch"
@@ -300,6 +308,11 @@ jobs:
         with:
           name: test-agent-output
           path: out
+      - name: Download change detection (trusted, not agent output)
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: test-agent-detect
+          path: trusted
       - name: Install dependencies (no lifecycle scripts)
         env:
           WORKSPACES: ${{ needs.detect.outputs.test-workspaces }}
@@ -327,9 +340,11 @@ jobs:
           TEST_AGENT_REPO_ROOT: ${{ github.workspace }}/pr
           BASE_SHA: ${{ needs.context.outputs.base-sha }}
           HEAD_SHA: ${{ needs.context.outputs.head-sha }}
+          WORKSPACES: ${{ needs.detect.outputs.test-workspaces }}
         run: |
           set +e
           node base/.claude/skills/test-verification/scripts/verify.mjs --base "$BASE_SHA" --head "$HEAD_SHA" \
+            --workspaces "$(node -p 'JSON.parse(process.env.WORKSPACES).join(",")')" \
             --baseline-dir .test-agent/baseline --mutation --json-out out/verification.json
           code=$?
           echo "status=$([ $code -eq 0 ] && echo passed || echo failed)" >> "$GITHUB_OUTPUT"
@@ -337,7 +352,7 @@ jobs:
       - name: Validate agent report
         id: report
         run: |
-          if node base/.claude/skills/test-report/scripts/validate-report.mjs --report out/report.json --detect out/detect.json; then
+          if node base/.claude/skills/test-report/scripts/validate-report.mjs --report out/report.json --detect trusted/detect.json; then
             echo "valid=true" >> "$GITHUB_OUTPUT"
           else
             echo "valid=false" >> "$GITHUB_OUTPUT"
@@ -369,9 +384,14 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: test-agent-{detect,output,verification}
+          pattern: test-agent-{output,verification}
           path: ${{ runner.temp }}/artifacts
           merge-multiple: true
+      - name: Download change detection (trusted, not agent output)
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: test-agent-detect
+          path: ${{ runner.temp }}/trusted
       - name: Bot token (GitHub App, so pushes trigger CI on the test PR)
         id: app
         if: vars.TEST_AGENT_APP_CLIENT_ID != ''
@@ -401,6 +421,7 @@ jobs:
           HEAD_SHA: ${{ needs.context.outputs.head-sha }}
           HEAD_REF: ${{ needs.context.outputs.head-ref }}
           ARTIFACTS_DIR: ${{ runner.temp }}/artifacts
+          DETECT_FILE: ${{ runner.temp }}/trusted/detect.json
           AGENT_OUTCOME: ${{ needs.generate.outputs.outcome }}
           REPORT_VALID: ${{ needs.verify.outputs.report-valid }}
         run: node .github/scripts/test-agent/publish.mjs

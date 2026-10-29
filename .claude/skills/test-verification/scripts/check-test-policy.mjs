@@ -9,7 +9,7 @@ import { isMain, parseArgs } from '../../../test-agent/lib/args.mjs';
 import { isWritableTestPath, loadConfig, repoRoot } from '../../../test-agent/lib/config.mjs';
 import { git, workingTreeChanges } from '../../../test-agent/lib/git.mjs';
 
-const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$/;
+export const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$/;
 
 const ERROR_RULES = [
   { id: 'focused-or-skipped', pattern: /\b(?:it|test|describe|suite)\s*\.\s*(?:only|skip|todo|fails)\b|\b(?:fit|xit|fdescribe|xdescribe|xtest)\s*\(/, message: 'focused, skipped or todo tests (.only/.skip/.todo) are not allowed' },

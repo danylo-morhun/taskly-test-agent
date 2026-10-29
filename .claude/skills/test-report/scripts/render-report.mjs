@@ -46,9 +46,10 @@ export function headline({ detect, report, verification, agentOutcome, testPr })
   return ['✅', 'Tests generated and verified', testPr ? `Review and merge the proposed tests: ${testPr}` : 'Apply the patch from the workflow run artifacts.'];
 }
 
-export function render({ detect, report, verification, run, agentOutcome, runUrl, testPr, patchArtifact }) {
+export function render({ detect, report, verification, run, agentOutcome, runUrl, testPr, patchArtifact, analyzedHead }) {
   const [icon, title, subtitle] = headline({ detect, report, verification, agentOutcome, testPr });
   const out = [MARKER, `## ${icon} Test Agent — ${title}`, '', subtitle, ''];
+  if (/^[0-9a-f]{40}$/.test(analyzedHead ?? '')) out.splice(1, 0, `<!-- analyzed-head: ${analyzedHead} -->`);
   if (report?.summary) out.push(`> ${text(report.summary, 600)}`, '');
 
   if (detect?.run && report?.decisions?.length) {

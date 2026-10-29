@@ -33,7 +33,7 @@ if (!ALLOWED.some((pattern) => pattern.test(command)) || FORBIDDEN_GIT_FLAGS.tes
 // Script output paths must stay inside the scratch directory.
 for (const match of command.matchAll(/--(?:json-out|out|coverage-dir|lcov-dir|baseline-dir)(?:=|\s+)(\S+)/g)) {
   const path = match[1].replace(/^\.\//, '');
-  if (!path.startsWith('.test-agent/') || path.includes('..')) {
+  if (!path.startsWith('.test-agent/') || path.includes('..') || /^\.test-agent\/(?:detect\.json|pr-context\.md|context\.json)$/.test(path)) {
     deny(`Test agent policy: output path "${match[1]}" must be inside .test-agent/.`);
   }
 }

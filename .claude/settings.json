@@ -9,11 +9,7 @@
       "Bash(node .claude/skills/test-verification/scripts/check-test-policy.mjs *)",
       "Bash(node .claude/skills/test-verification/scripts/verify.mjs *)",
       "Bash(node .claude/skills/test-report/scripts/render-report.mjs *)",
-      "Bash(node .claude/skills/test-report/scripts/validate-report.mjs *)",
-      "Bash(git diff *)",
-      "Bash(git log *)",
-      "Bash(git show *)",
-      "Bash(git status *)"
+      "Bash(node .claude/skills/test-report/scripts/validate-report.mjs *)"
     ]
   }
 }

@@ -55,9 +55,11 @@ export function summarize(report, proc) {
   }
   const skipped = (report.numPendingTests ?? 0) + (report.numTodoTests ?? 0);
   // Vitest exits non-zero on coverage threshold failures even when every test passes.
+  // Thresholds are a project gate (enforced by CI) and are reported, not treated as failed tests:
+  // a PR's own uncovered code must not block valid tests that improve coverage.
   const thresholdFailure = proc.code !== 0 && failures.length === 0 && /threshold/i.test(proc.stderr + proc.stdout);
   return {
-    success: Boolean(report.success) && failures.length === 0 && !thresholdFailure,
+    success: failures.length === 0 && (report.numFailedTests ?? 0) === 0 && (report.numFailedTestSuites ?? 0) === 0,
     crashed: false,
     total: report.numTotalTests ?? 0,
     passed: report.numPassedTests ?? 0,
@@ -107,7 +109,7 @@ export function formatSummary(result) {
   }
   lines.push(`${icon} ${result.workspace}: ${result.passed}/${result.total} passed, ${result.failed} failed, ${result.skipped} skipped (${result.durationMs} ms${result.repeat > 1 ? `, ${result.repeat} runs` : ''})`);
   if (result.flakyTests.length) lines.push(`FLAKY (${result.flakyTests.length}):`, ...result.flakyTests.map((t) => `  - ${t}`));
-  if (result.thresholdFailure) lines.push('Coverage thresholds not met:', result.thresholdFailure);
+  if (result.thresholdFailure) lines.push('WARN coverage thresholds not met (non-blocking here; enforced by CI):', result.thresholdFailure);
   for (const failure of result.failures.slice(0, 15)) {
     lines.push('', `✗ ${failure.file} > ${failure.test}`, failure.message.split('\n').map((l) => `    ${l}`).join('\n'));
   }

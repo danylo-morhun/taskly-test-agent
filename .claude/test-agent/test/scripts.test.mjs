@@ -74,10 +74,10 @@ describe('test runs', () => {
     assert.equal(result.crashed, true);
     assert.equal(result.success, false);
   });
-  it('detects coverage threshold failures when all tests pass', () => {
-    const result = summarize({ success: true, numTotalTests: 1, numPassedTests: 1, testResults: [] }, { code: 1, stdout: '', stderr: 'ERROR: Coverage for lines (50%) does not meet threshold (90%)', durationMs: 1 });
-    assert.equal(result.success, false);
-    assert.ok(result.thresholdFailure);
+  it('reports coverage threshold failures without failing passing tests', () => {
+    const result = summarize({ success: false, numTotalTests: 1, numPassedTests: 1, numFailedTests: 0, testResults: [] }, { code: 1, stdout: '', stderr: 'ERROR: Coverage for lines (50%) does not meet threshold (90%)', durationMs: 1 });
+    assert.equal(result.success, true);
+    assert.match(result.thresholdFailure, /does not meet threshold/);
   });
   it('flags tests whose outcome differs across runs', () => {
     assert.deepEqual(findFlaky([{ statuses: { a: 'passed', b: 'passed' } }, { statuses: { a: 'failed', b: 'passed' } }]), ['a']);
@@ -133,10 +133,10 @@ describe('report', () => {
   });
   it('explains threshold-only failures and skipped mutation runs', () => {
     const failing = structuredClone(verification);
-    Object.assign(failing.workspaces.backend.tests, { success: false, failed: 0, thresholdFailure: 'ERROR: Coverage for lines (80%) does not meet global threshold (95%)' });
+    Object.assign(failing.workspaces.backend.tests, { success: true, failed: 0, thresholdFailure: 'ERROR: Coverage for lines (80%) does not meet global threshold (95%)' });
     failing.workspaces.backend.mutation = { skipped: true, reason: 'test suite is failing' };
     const body = render({ detect, report, verification: failing });
-    assert.ok(body.includes('❌ 10/10 (coverage thresholds not met)'));
+    assert.ok(body.includes('✅ 10/10 ⚠️ coverage thresholds not met'));
     assert.ok(body.includes('— (test suite is failing)'));
     assert.ok(body.includes('does not meet global threshold'));
   });

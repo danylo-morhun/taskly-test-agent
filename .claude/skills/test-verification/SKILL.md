@@ -43,6 +43,10 @@ All scripts run tests in a **sanitized environment** (no tokens, `TZ=UTC`) and p
 5. **Mutation testing** on changed lines: `mutation-test.mjs --workspace <ws> --base <ref>`. For each undetected mutant on meaningful logic (conditions, boundaries, returned values, arguments to collaborators), add or sharpen an assertion. Equivalent mutants (e.g. changed log text, no observable effect) may be left — mention them in `selfCheck.notes`. Target ≥ 80 % on changed lines; do not chase 100 % with brittle tests.
 6. **Final self-check**: `verify.mjs --base <ref> --mutation`. It must print `Verification PASSED`. Record the result and iteration count in the report's `selfCheck`.
 
+## Coverage thresholds
+
+The workspaces enforce coverage thresholds. A threshold miss is a **warning** in `run-tests.mjs`/`verify.mjs`, not a failure: it is often caused by the PR's own unreachable or untestable code (report that in `concerns`). Do not write low-value tests just to reach a threshold. Use patch coverage to decide what is missing.
+
 ## Flakiness
 
 `verify.mjs` re-runs changed test files 3× with shuffled order. Typical causes and fixes: shared mutable fixtures (clone per test), leaking mocks (`vi.restoreAllMocks()`/`vi.clearAllMocks()` in hooks), real timers or `Date.now()` (fake timers), unawaited promises (`await` / `findBy…`), order-dependent module state (`vi.resetModules()`).

@@ -21,3 +21,12 @@ coverage/
 
 # macOS
 .DS_Store
+
+# Claude Code local-only files
+.claude/settings.local.json
+.claude/worktrees/
+
+# Test agent run output
+.test-agent/
+**/reports/mutation/
+.stryker-tmp/

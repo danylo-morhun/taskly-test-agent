@@ -14,7 +14,7 @@ import { isMain, list, parseArgs } from '../../../test-agent/lib/args.mjs';
 import { classifyPath, getWorkspace, loadConfig, repoRoot } from '../../../test-agent/lib/config.mjs';
 import { changedFiles } from '../../../test-agent/lib/git.mjs';
 import { run, tail } from '../../../test-agent/lib/process.mjs';
-import { checkPolicy, formatPolicy } from './check-test-policy.mjs';
+import { TEST_FILE, checkPolicy, formatPolicy } from './check-test-policy.mjs';
 import { mutationTest, formatMutation } from './mutation-test.mjs';
 import { computePatchCoverage, formatCoverage } from './patch-coverage.mjs';
 import { formatSummary, runTests } from './run-tests.mjs';
@@ -55,7 +55,7 @@ export function verify({ base, head, workspaces: requested = [], baselineDir, mu
     result.tests = serializable;
 
     const repeats = config.limits?.flakyRepeats ?? 3;
-    const specFiles = ownTests.filter((path) => /\.(test|spec)\.[cm]?[jt]sx?$/.test(path));
+    const specFiles = ownTests.filter((path) => TEST_FILE.test(path));
     if (specFiles.length && repeats > 1) {
       const flaky = runTests(name, { files: specFiles, repeat: repeats, shuffle: true });
       result.flaky = { ok: flaky.success && !flaky.flakyTests.length, repeats, files: specFiles, flakyTests: flaky.flakyTests, failures: flaky.failures.slice(0, 5) };

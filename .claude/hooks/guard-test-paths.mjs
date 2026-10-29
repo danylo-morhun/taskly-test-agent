@@ -35,6 +35,10 @@ const root = realpathSync(process.env.CLAUDE_PROJECT_DIR || repoRoot);
 const absolute = resolveReal(target.startsWith('/') ? target : join(input.cwd || root, target));
 const repoPath = toRepoPath(absolute, root);
 // The agent's scratch directory (report, run artifacts) is git-ignored and never proposed.
+// detect.json and pr-context.md are inputs prepared by the workflow: read-only for the agent.
+if (/^\.test-agent\/(?:detect\.json|pr-context\.md|context\.json)$/.test(repoPath ?? '')) {
+  deny('Test agent policy: workflow inputs in .test-agent/ (detect.json, pr-context.md) are read-only.');
+}
 if (repoPath?.startsWith('.test-agent/') && !repoPath.includes('..')) process.exit(0);
 if (!isWritableTestPath(loadConfig(join(root, '.claude/test-agent/config.json')), repoPath)) {
   deny(`Test agent policy: "${repoPath ?? target}" is not a writable test path. The agent may only create or edit test files and test helpers (see .claude/test-agent/config.json). Production code must not be changed — report suspected bugs as concerns instead.`);

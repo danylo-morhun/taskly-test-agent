@@ -16,7 +16,7 @@ describe('guard-test-paths hook', () => {
   for (const path of ['backend/tests/health.test.ts', `${repoRoot}/frontend/src/lib/http.test.ts`, 'frontend/src/test/render.tsx', '.test-agent/report.json']) {
     it(`allows ${path}`, () => assert.equal(write(path), null));
   }
-  for (const path of ['backend/src/factory.ts', 'frontend/src/test/setup.ts', '.claude/agents/unit-test-agent.md', '.github/workflows/test-agent.yml', 'backend/package.json', '/etc/hosts', '../outside.test.ts', 'backend/tests/../src/factory.ts', '.test-agent/../backend/src/x.ts']) {
+  for (const path of ['backend/src/factory.ts', 'frontend/src/test/setup.ts', '.claude/agents/unit-test-agent.md', '.github/workflows/test-agent.yml', 'backend/package.json', '/etc/hosts', '../outside.test.ts', 'backend/tests/../src/factory.ts', '.test-agent/../backend/src/x.ts', '.test-agent/detect.json', '.test-agent/pr-context.md']) {
     it(`denies ${path}`, () => assert.equal(write(path)?.permissionDecision, 'deny'));
   }
   it('denies notebook edits outside tests and malformed input', () => {
@@ -41,5 +41,6 @@ describe('guard-bash hook', () => {
     'node .claude/skills/test-verification/scripts/run-tests.mjs --json-out backend/src/factory.ts',
     'node .claude/skills/test-verification/scripts/run-tests.mjs --coverage-dir=.test-agent/../backend/src',
     'cat /proc/self/environ',
+    'node .claude/skills/test-impact-analysis/scripts/detect-changes.mjs --base main --out .test-agent/detect.json',
   ]) it(`denies: ${command}`, () => assert.equal(bash(command)?.permissionDecision, 'deny'));
 });

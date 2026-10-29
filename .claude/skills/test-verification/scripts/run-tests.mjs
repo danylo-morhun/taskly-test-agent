@@ -57,7 +57,11 @@ export function summarize(report, proc) {
   // Vitest exits non-zero on coverage threshold failures even when every test passes.
   // Thresholds are a project gate (enforced by CI) and are reported, not treated as failed tests:
   // a PR's own uncovered code must not block valid tests that improve coverage.
-  const thresholdFailure = proc.code !== 0 && failures.length === 0 && /threshold/i.test(proc.stderr + proc.stdout);
+  const output = `${proc.stderr}\n${proc.stdout}`;
+  const thresholdFailure = proc.code !== 0 && failures.length === 0 && /does not meet (?:global )?threshold/i.test(output);
+  // Any other non-zero exit (e.g. unhandled errors/rejections after a test) is a failure.
+  const unexplainedExit = proc.code !== 0 && failures.length === 0 && !thresholdFailure;
+  if (unexplainedExit) failures.push({ file: '(vitest)', test: `exited with code ${proc.code}`, message: tail(output, 25) });
   return {
     success: failures.length === 0 && (report.numFailedTests ?? 0) === 0 && (report.numFailedTestSuites ?? 0) === 0,
     crashed: false,

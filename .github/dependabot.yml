@@ -3,6 +3,8 @@ updates:
   - package-ecosystem: npm
     directories: ["/backend", "/frontend"]
     schedule: { interval: weekly }
+    # Supply-chain hygiene: let new releases age before adopting them.
+    cooldown: { default-days: 14 }
     open-pull-requests-limit: 5
     groups:
       minor-and-patch:
@@ -10,6 +12,7 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
+    cooldown: { default-days: 14 }
     groups:
       actions:
         patterns: ["*"]

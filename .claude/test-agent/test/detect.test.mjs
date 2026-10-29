@@ -74,6 +74,7 @@ describe('detect-changes', () => {
     const rebased = r.commit('feature (rebased)');
     const result = detect(r.root, ['--base', newBase, '--head', rebased, '--since', first]);
     assert.equal(result.run, false, result.reason);
+    assert.equal(result.incremental, true);
   });
   it('falls back to a full analysis when the previous head is unknown', () => {
     const r = repo();

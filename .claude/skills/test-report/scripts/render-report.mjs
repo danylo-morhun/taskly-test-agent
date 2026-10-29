@@ -83,7 +83,7 @@ export function render({ detect, report, verification, run, agentOutcome, runUrl
         const t = ws.tests ?? {};
         const tests = t.crashed
           ? '❌ crashed'
-          : `${mark(t.success)} ${t.passed}/${t.total}${t.failed === 0 && t.thresholdFailure ? ' (coverage thresholds not met)' : ''}`;
+          : `${mark(t.success)} ${t.passed}/${t.total}${t.thresholdFailure ? ' ⚠️ coverage thresholds not met' : ''}`;
         const flaky = ws.flaky?.skipped ? '—' : `${mark(ws.flaky?.ok)} ${ws.flaky?.repeats}× shuffled`;
         const after = ws.patchCoverage?.after;
         const before = ws.patchCoverage?.before;

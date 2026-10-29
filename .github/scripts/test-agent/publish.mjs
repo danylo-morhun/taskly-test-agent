@@ -5,7 +5,7 @@
 //  2. upsert one sticky report comment on the original PR;
 //  3. write the report to the job summary.
 // Runs from the trusted base checkout; never executes PR code.
-import { appendFileSync, existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -17,6 +17,8 @@ const number = Number(required('PR_NUMBER'));
 const headSha = required('HEAD_SHA');
 const headRef = required('HEAD_REF');
 const dir = resolve(required('ARTIFACTS_DIR'));
+// Skipped runs download no agent artifacts, so the directory may not exist yet.
+mkdirSync(dir, { recursive: true });
 const runUrl = `${process.env.GITHUB_SERVER_URL ?? 'https://github.com'}/${repo}/actions/runs/${process.env.GITHUB_RUN_ID ?? ''}`;
 const branch = `test-agent/pr-${number}`;
 const botLogin = process.env.BOT_LOGIN || 'github-actions[bot]';

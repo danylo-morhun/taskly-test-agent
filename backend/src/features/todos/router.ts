@@ -11,6 +11,10 @@ export function createTodosRouter(repository: TodoStore) {
     next();
   });
   router.get('/', async (req, res) => res.json(await repository.list()));
+  // Static paths must precede '/:id', otherwise the id param validator rejects them.
+  router.delete('/completed', async (req, res) => {
+    res.json({ deleted: await repository.deleteCompleted() });
+  });
   router.post('/', async (req, res) => {
     const result = createSchema.safeParse(req.body);
     if (!result.success) return res.status(422).json({ detail: result.error.issues });
@@ -31,9 +35,6 @@ export function createTodosRouter(repository: TodoStore) {
   router.delete('/:id', async (req, res) => {
     if (!await repository.delete(Number(res.locals.todoId))) return res.status(404).json({ detail: 'Task not found.' });
     res.status(204).end();
-  });
-  router.delete('/completed', async (req, res) => {
-    res.json({ deleted: await repository.deleteCompleted() });
   });
   return router;
 }

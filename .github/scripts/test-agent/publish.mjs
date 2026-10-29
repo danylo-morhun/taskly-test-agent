@@ -101,7 +101,10 @@ if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMM
 // Only our own bot comments carrying the marker are updated; a user comment that copies the marker is ignored.
 const comments = ghJson(['api', '--paginate', '--slurp', `repos/${repo}/issues/${number}/comments?per_page=100`]).flat();
 const mine = comments.find((c) => c.user?.type === 'Bot' && c.user?.login === botLogin && String(c.body).startsWith(MARKER));
-if (mine) gh(['api', '--method', 'PATCH', `repos/${repo}/issues/comments/${mine.id}`, '--input', '-'], { input: JSON.stringify({ body: comment }) });
+if (mine && detect && !detect.run && detect.incremental) {
+  // Nothing of the PR changed since the last analysis: keep that report instead of replacing it with "Skipped".
+  console.log('Incremental skip: keeping the existing report comment.');
+} else if (mine) gh(['api', '--method', 'PATCH', `repos/${repo}/issues/comments/${mine.id}`, '--input', '-'], { input: JSON.stringify({ body: comment }) });
 else gh(['api', '--method', 'POST', `repos/${repo}/issues/${number}/comments`, '--input', '-'], { input: JSON.stringify({ body: comment }) });
 
 output({ 'test-pr': testPr ?? '', status: verification?.status ?? 'none' });

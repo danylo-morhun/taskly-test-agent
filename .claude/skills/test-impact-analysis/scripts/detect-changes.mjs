@@ -24,6 +24,7 @@ export function detect({ base, head, since, config = loadConfig() }) {
   const result = {
     base, head: head ?? 'WORKTREE',
     run: false,
+    incremental: false,
     reason: '',
     workspaces: [...new Set(selected.map((file) => file.workspace))],
     testWorkspaces: [...new Set(files.filter((file) => file.kind === 'test').map((file) => file.workspace))],
@@ -53,6 +54,7 @@ export function detect({ base, head, since, config = loadConfig() }) {
       // `since` may be unreachable after a force-push: fall back to analyzing the whole PR.
     }
     if (incremental && !incremental.includes('source')) {
+      result.incremental = true;
       result.reason = 'No testable source file of this PR changed since the last analyzed commit (only tests, non-source files or upstream changes from a rebase).';
       return result;
     }

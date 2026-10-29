@@ -3,7 +3,7 @@
 // files, must not delete tests, and the tests it writes must be real tests.
 //
 // Usage: node check-test-policy.mjs [--json-out file]
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { isMain, parseArgs } from '../../../test-agent/lib/args.mjs';
 import { isWritableTestPath, loadConfig, repoRoot } from '../../../test-agent/lib/config.mjs';
@@ -41,11 +41,32 @@ export function lintTestSource(source) {
   return { errors, warnings };
 }
 
-export function checkPolicy({ config = loadConfig(), changes = workingTreeChanges(), readFile = (p) => readFileSync(join(repoRoot, p), 'utf8'), readHead = (p) => git(['show', `HEAD:${p}`]) } = {}) {
+/**
+ * Inside the agent's CI sandbox (TEST_AGENT_SANDBOX=1, set only for the agent job) two kinds of
+ * changes are not the agent's: `.claude/` restored from the base branch by claude-code-action,
+ * and empty placeholder files the bubblewrap sandbox mounts at the repo root. They are ignored
+ * there, and only there: the independent verify and publish checks stay strict.
+ */
+export function isSandboxArtifact(change, size = (p) => statSync(join(repoRoot, p)).size) {
+  if (/^\.claude(?:-pr)?\//.test(change.path)) return true;
+  if (change.status !== 'A' || change.path.includes('/')) return false;
+  try {
+    return size(change.path) === 0;
+  } catch {
+    return false;
+  }
+}
+
+export function checkPolicy({ config = loadConfig(), changes = workingTreeChanges(), readFile = (p) => readFileSync(join(repoRoot, p), 'utf8'), readHead = (p) => git(['show', `HEAD:${p}`]), sandbox = process.env.TEST_AGENT_SANDBOX === '1', size } = {}) {
   const errors = [];
   const warnings = [];
   const files = [];
+  const ignored = [];
   for (const change of changes) {
+    if (sandbox && isSandboxArtifact(change, size)) {
+      ignored.push(change.path);
+      continue;
+    }
     const { status, path } = change;
     if (change.previousPath && !isWritableTestPath(config, change.previousPath)) {
       errors.push({ path: change.previousPath, id: 'forbidden-path', message: 'renamed a file outside the allowed test paths' });
@@ -78,7 +99,7 @@ export function checkPolicy({ config = loadConfig(), changes = workingTreeChange
       }
     }
   }
-  return { ok: errors.length === 0, errors, warnings, files };
+  return { ok: errors.length === 0, errors, warnings, files, ...(sandbox ? { ignoredSandboxArtifacts: ignored } : {}) };
 }
 
 export function formatPolicy(result) {

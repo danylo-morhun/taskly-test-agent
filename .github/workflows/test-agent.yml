@@ -143,6 +143,9 @@ jobs:
     env:
       # claude-code-action: strip Anthropic/cloud/GitHub secrets from every subprocess Claude starts.
       CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
+      # The agent's own policy self-check ignores sandbox artifacts (restored .claude/, empty
+      # placeholder files). The independent verify/publish checks never set this.
+      TEST_AGENT_SANDBOX: "1"
     outputs:
       outcome: ${{ steps.agent.outcome }}
     steps:

@@ -29,6 +29,17 @@ export function mutateSpecs({ workspace, base, head, files, config }) {
   return specs;
 }
 
+/** Source text covered by a mutant's location (mutation-testing-report-schema: 1-based lines and columns). */
+export function originalCode(source, start, end, max = 80) {
+  if (typeof source !== 'string') return null;
+  const lines = source.split('\n').slice(start.line - 1, end.line);
+  if (!lines.length) return null;
+  lines[lines.length - 1] = lines[lines.length - 1].slice(0, end.column - 1);
+  lines[0] = lines[0].slice(start.column - 1);
+  const text = lines.join('\n').replace(/\s+/g, ' ').trim();
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
 export function summarizeMutation(report) {
   const counts = {};
   const survivors = [];
@@ -36,10 +47,13 @@ export function summarizeMutation(report) {
     for (const mutant of data.mutants ?? []) {
       counts[mutant.status] = (counts[mutant.status] ?? 0) + 1;
       if (UNDETECTED.has(mutant.status)) {
+        const { start, end } = mutant.location ?? {};
         survivors.push({
           file: toRepoPath(resolve(report.projectRoot ?? '', file)) ?? file,
-          line: mutant.location?.start?.line,
+          line: start?.line,
+          column: start?.column,
           mutator: mutant.mutatorName,
+          original: start && end ? originalCode(data.source, start, end) : null,
           replacement: mutant.replacement ?? null,
           status: mutant.status,
         });
@@ -78,7 +92,8 @@ export function formatMutation(result) {
   if (result.error) return `${result.workspace}: ${result.error}\n${result.output}`;
   const lines = [`${result.workspace}: mutation score ${result.score ?? 'n/a'}% (${result.detected} detected, ${result.undetected} undetected)`];
   for (const s of result.survivors.slice(0, 30)) {
-    lines.push(`  ${s.status.toUpperCase()} ${s.file}:${s.line} ${s.mutator}${s.replacement ? ` → ${JSON.stringify(s.replacement).slice(0, 80)}` : ''}`);
+    const change = s.original !== null && s.original !== undefined ? ` ${JSON.stringify(s.original)} →` : ' →';
+    lines.push(`  ${s.status.toUpperCase()} ${s.file}:${s.line}:${s.column ?? 1} ${s.mutator}${s.replacement !== null ? `${change} ${JSON.stringify(s.replacement).slice(0, 80)}` : ''}`);
   }
   if (result.survivors.length > 30) lines.push(`  … and ${result.survivors.length - 30} more`);
   return lines.join('\n');

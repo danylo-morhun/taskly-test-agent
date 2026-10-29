@@ -32,12 +32,26 @@ describe('test policy', () => {
   });
   const files = { 'backend/tests/new.test.ts': goodTest, 'backend/tests/moved.test.ts': goodTest, 'backend/tests/old.test.ts': "it('kept', () => { expect(sum(1)).toBe(1) })" };
   const head = { 'backend/tests/old.test.ts': "it('kept', () => { expect(sum(1)).toBe(1) })\nit('dropped', () => { expect(sum(2)).toBe(2) })" };
-  const run = (changes) => checkPolicy({ config, changes, readFile: (p) => files[p], readHead: (p) => head[p] });
+  const run = (changes) => checkPolicy({ config, changes, readFile: (p) => files[p], readHead: (p) => head[p], sandbox: false });
   it('allows added and modified tests, warning about removed cases', () => {
     const result = run([{ status: 'A', path: 'backend/tests/new.test.ts' }, { status: 'M', path: 'backend/tests/old.test.ts' }]);
     assert.equal(result.ok, true);
     assert.deepEqual(result.warnings.map((w) => w.id).sort(), ['fewer-assertions', 'removed-tests']);
     assert.deepEqual(result.files.map((f) => f.status), ['added', 'modified']);
+  });
+  it('ignores restored agent config and empty root placeholders only in sandbox mode', () => {
+    const changes = [
+      { status: 'M', path: '.claude/skills/x/SKILL.md' },
+      { status: 'A', path: '.bashrc' },
+      { status: 'A', path: 'evil.sh' },
+      { status: 'A', path: 'backend/tests/new.test.ts' },
+    ];
+    const size = (p) => (p === 'evil.sh' ? 12 : 0);
+    const strict = checkPolicy({ config, changes, readFile: (p) => files[p], readHead: () => '', sandbox: false, size });
+    assert.deepEqual(strict.errors.map((e) => e.path), ['.claude/skills/x/SKILL.md', '.bashrc', 'evil.sh']);
+    const sandboxed = checkPolicy({ config, changes, readFile: (p) => files[p], readHead: () => '', sandbox: true, size });
+    assert.deepEqual(sandboxed.errors.map((e) => e.path), ['evil.sh'], 'non-empty files are never ignored');
+    assert.deepEqual(sandboxed.ignoredSandboxArtifacts, ['.claude/skills/x/SKILL.md', '.bashrc']);
   });
   it('rejects source edits, protected files, deleted tests and renames out of test paths', () => {
     const result = run([

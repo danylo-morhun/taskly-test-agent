@@ -245,9 +245,11 @@ jobs:
           if [ -n "$EXECUTION_FILE" ] && [ -f "$EXECUTION_FILE" ]; then
             node .claude/skills/test-report/scripts/summarize-run.mjs --execution-file "$EXECUTION_FILE" --json-out "$OUT/run.json" > /dev/null
           fi
-          # The proposal = every working-tree change except agent config restored by the action
-          # (.test-agent/ is git-ignored scratch space).
-          git add -A -- . ':!.claude' ':!.claude-pr'
+          # The proposal = every working-tree change except the agent config the action restored
+          # from the base branch. Ignored paths (.test-agent/, .claude-pr/) are never staged; no
+          # exclude pathspecs, since git exits non-zero when one names an ignored path.
+          git add -A
+          git restore --staged -- .claude 2>/dev/null || true
           git diff --cached --binary HEAD > "$OUT/tests.patch"
           git diff --cached --stat HEAD
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

@@ -6,7 +6,7 @@ A Claude Code **custom agent** (`unit-test-agent`) with **five reusable skills**
 | --- | --- |
 | Agent | [`.claude/agents/unit-test-agent.md`](.claude/agents/unit-test-agent.md) |
 | Skills | [`.claude/skills/`](.claude/skills/): `test-impact-analysis`, `backend-unit-tests`, `frontend-unit-tests`, `test-verification`, `test-report` |
-| Tooling and config | [`.claude/test-agent/`](.claude/test-agent/): `config.json`, shared `lib/`, `agent-settings.json`, 84 `node:test` tests |
+| Tooling and config | [`.claude/test-agent/`](.claude/test-agent/): `config.json`, shared `lib/`, `agent-settings.json`, 95 `node:test` tests |
 | Guard hooks | [`.claude/hooks/`](.claude/hooks/): `guard-test-paths.mjs`, `guard-bash.mjs` |
 | PR workflow | [`.github/workflows/test-agent.yml`](.github/workflows/test-agent.yml) + [`.github/scripts/test-agent/`](.github/scripts/test-agent/) |
 | CI | [`.github/workflows/ci.yml`](.github/workflows/ci.yml): typecheck, Prettier, tests with coverage thresholds, tooling tests, actionlint, zizmor |
@@ -29,7 +29,7 @@ pull_request ─► context ─► detect ─► generate ──► verify ─�
 ```
 
 1. **context**: resolves the PR (also via `workflow_dispatch`). Skips forks, drafts, the `test-agent:skip` label, the agent's own PRs, and PRs whose base branch does not have the agent yet.
-2. **detect** (deterministic): `detect-changes.mjs` classifies every changed file as `source`, `test`, `excluded` (the project's own coverage exclusions) or `other`, using `config.json`. With no testable source change the LLM is never called: no cost, no nondeterminism. On `synchronize`, a push that changed only tests (e.g. after merging the agent's test PR) is skipped as well.
+2. **detect** (deterministic): `detect-changes.mjs` classifies every changed file as `source`, `test`, `excluded` (the project's own coverage exclusions) or `other`, using `config.json`. With no testable source change the LLM is never called: no cost, no nondeterminism. On `synchronize`, a push that changed none of the PR's source files since the last *fully analyzed* head is skipped too: for example, merging the agent's test PR or a rebase. That head is recorded in the report comment only after a complete run, so a cancelled or failed run never counts.
 3. **generate**: `claude-code-action` runs `claude --agent unit-test-agent --settings .claude/test-agent/agent-settings.json`. The agent follows its skills: plan per file, write tests in house style, run → triage → fix, full suite, patch coverage, mutation testing on the changed lines, final `verify.mjs`, then a schema-validated `report.json`. If a previous proposal exists for the PR, it is applied first, so later pushes **update** tests instead of regenerating them.
 4. **verify** (independent, no secrets): fresh checkout of the PR head plus a *trusted* checkout of the base branch's tooling. It measures baseline coverage, applies the agent's patch and re-runs everything: path policy, typecheck, Prettier, full suites with coverage, 3× shuffled re-runs of changed tests, patch coverage before → after, and mutation score. It also validates the agent's report against its JSON Schema and checks one decision per changed file.
 5. **publish** (GitHub App token, no PR code executed): if verification passed, it pushes the tests to `test-agent/pr-<n>` (based on the PR head) and opens or updates a PR **into the feature branch**. It then upserts one sticky report comment on the original PR and the job summary. The check fails when the generated tests do not verify.
@@ -74,7 +74,8 @@ The agent processes untrusted input (PR diff, title, description) and runs untru
 | Fork PR / outside contributor | Fork PRs skipped. Repo setting requires approval for outside contributors. `claude-code-action` additionally checks the actor has write access |
 | PR modifies the agent, skills, hooks or settings | `claude-code-action` restores `.claude/` from the base branch. Verify and publish run tooling from a separate **base** checkout (`TEST_AGENT_REPO_ROOT` points scripts at the PR checkout) |
 | Prompt injection in PR text or code | Prompt marks PR context as untrusted data. The agent has no network tools (WebFetch/WebSearch/Agent denied), cannot run arbitrary shell, and cannot write outside test paths. Its output is re-verified and its text is sanitized before rendering (HTML, links, images, `@mentions`, `#refs`, table syntax neutralized) |
-| Token exfiltration via tests (PR code runs) | The only job holding the LLM credential has a **read-only** `GITHUB_TOKEN`. `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB` + **bubblewrap** give agent subprocesses a scrubbed env and their own PID namespace. Test scripts spawn Vitest/Stryker with an **allowlisted environment**. `npm ci --ignore-scripts` |
+| Token exfiltration via tests (PR code runs) | The only job holding the LLM credential has a **read-only** `GITHUB_TOKEN`. `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB` + **bubblewrap** give agent subprocesses a scrubbed env and their own PID namespace. `npm ci --ignore-scripts`. The one pre-agent step that evaluates PR code (`prisma generate` → `prisma.config.ts`) runs in a bubblewrap PID namespace with `--die-with-parent`, so nothing outlives it. Test scripts spawn Vitest/Stryker with an **allowlisted environment** |
+| Agent tampers with its own inputs | `detect.json` / `pr-context.md` are read-only to the agent (both hooks). Verify and publish read change detection from the trusted `detect` artifact, never from agent output |
 | Agent edits production code / weakens tests | `guard-test-paths.mjs` hook (symlink-safe) allows only test files and helpers (`setup.ts` protected). Verify re-checks the patch: no source changes, no deleted tests, no `.only/.skip`, no assertion-free files. It warns on removed test cases or fewer assertions. Publish re-checks again before committing |
 | Agent runs arbitrary commands | `permissions.defaultMode: dontAsk` + allowlist, plus `guard-bash.mjs`: only skill scripts and read-only git, no chaining/pipes/redirection/substitution, script outputs confined to `.test-agent/` |
 | Write tokens near untrusted code | `contents: write` / App token only in `publish`, which checks out the base branch and only applies a verified patch (`git apply`, no hooks, no installs). Push via `GIT_CONFIG_*` header, not the URL |
@@ -136,7 +137,7 @@ The "refactor" silently lowered the title limit from 120 to 100. The agent chang
 
 These used the same agent in *target mode*, run locally: two agents in parallel, in separate git worktrees. Backend took 47 turns and 3.3 minutes; frontend took 126 turns and 11 minutes. See the coverage table at the top.
 
-### Problems found by dogfooding and fixed (PRs #2, #6–#10, #13)
+### Problems found by dogfooding and code review, and fixed (PRs #2, #6–#10, #13, #15)
 
 The live runs surfaced real integration issues, each fixed in its own PR:
 - `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB` needs bubblewrap. It is now installed, so isolation is not disabled.
@@ -146,6 +147,7 @@ The live runs surfaced real integration issues, each fixed in its own PR:
 - Coverage thresholds failing because of the PR's own unreachable code blocked valid tests. Thresholds are now a warning in verification and still a required check in CI.
 - Rebases were not handled correctly by incremental skips. A skip also overwrote the last report.
 - Mutation feedback did not show the original source fragment.
+- A `/code-review` pass over `.claude/` and `.github/` found 10 issues, all fixed in #15. Examples: verify trusting an agent-writable `detect.json`, PR code running before the agent outside the sandbox, publishing a test PR despite an invalid report, unhandled Vitest errors counted as a pass, Dependabot PRs failing publish, and consistent failures reported as flaky.
 
 ## Assumptions
 

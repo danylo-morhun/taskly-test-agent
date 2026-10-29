@@ -69,9 +69,12 @@ export function verify({ base, head, workspaces: requested = [], baselineDir, mu
     result.patchCoverage = { before, after };
     if (after) log(formatCoverage({ [name]: after }));
 
-    if (mutation) {
+    if (mutation && tests.success) {
       result.mutation = mutationTest({ workspace: name, base, head });
       log(formatMutation(result.mutation));
+    } else if (mutation) {
+      // Stryker needs a green initial run; mutation scores on a failing suite are meaningless.
+      result.mutation = { workspace: name, skipped: true, reason: 'test suite is failing' };
     }
     result.ok = result.typecheck.ok && result.format.ok && tests.success && result.flaky.ok;
     results[name] = result;

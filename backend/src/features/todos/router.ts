@@ -32,5 +32,8 @@ export function createTodosRouter(repository: TodoStore) {
     if (!await repository.delete(Number(res.locals.todoId))) return res.status(404).json({ detail: 'Task not found.' });
     res.status(204).end();
   });
+  router.delete('/completed', async (req, res) => {
+    res.json({ deleted: await repository.deleteCompleted() });
+  });
   return router;
 }

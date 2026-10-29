@@ -56,6 +56,17 @@ export function selectTodos(
     })
 }
 
+export function countCompleted(todos: Todo[]): number {
+  return todos.filter((todo) => todo.completed).length
+}
+
+export function clearedNotice(count: number): string {
+  if (count === 0) return 'No completed tasks to clear.'
+  return count === 1
+    ? '1 completed task cleared.'
+    : `${count} completed tasks cleared.`
+}
+
 export function isOverdue(todo: Todo): boolean {
   const today = new Date()
   const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`

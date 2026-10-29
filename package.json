@@ -1,0 +1,12 @@
+{
+  "name": "taskly-test-agent",
+  "private": true,
+  "description": "Repository root: backend/ and frontend/ are independent npm projects; this file only hosts repo-level tooling scripts.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "test:agent-tooling": "node --test '.claude/test-agent/test/*.test.mjs'"
+  }
+}

@@ -7,7 +7,7 @@ import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { isMain, parseArgs } from '../../../test-agent/lib/args.mjs';
 import { classifyPath, loadConfig } from '../../../test-agent/lib/config.mjs';
-import { addedLines, changedFiles, git } from '../../../test-agent/lib/git.mjs';
+import { addedLines, assertRef, changedFiles, git } from '../../../test-agent/lib/git.mjs';
 
 export function detect({ base, head, since, config = loadConfig() }) {
   const files = changedFiles(base, head).map((file) => ({ ...file, ...classifyPath(config, file.path) }));
@@ -42,13 +42,18 @@ export function detect({ base, head, since, config = loadConfig() }) {
   }
   if (since) {
     let incremental = null;
+    // Only files this PR changes count: after a rebase, `since..head` also contains
+    // upstream commits that are not part of the PR.
+    const prPaths = new Set(files.map((file) => file.path));
     try {
-      incremental = changedFiles(since, head).map((file) => classifyPath(config, file.path).kind);
+      incremental = git(['diff', '--name-only', `${assertRef(since)}..${assertRef(head ?? 'HEAD')}`])
+        .split('\n').filter((path) => path && prPaths.has(path))
+        .map((path) => classifyPath(config, path).kind);
     } catch {
       // `since` may be unreachable after a force-push: fall back to analyzing the whole PR.
     }
-    if (incremental && incremental.length && !incremental.includes('source')) {
-      result.reason = 'Only tests or non-source files changed since the last analyzed commit.';
+    if (incremental && !incremental.includes('source')) {
+      result.reason = 'No testable source file of this PR changed since the last analyzed commit (only tests, non-source files or upstream changes from a rebase).';
       return result;
     }
   }

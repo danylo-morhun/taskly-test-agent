@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { checkPolicy, countAssertions, lintTestSource, testTitles } from '../../skills/test-verification/scripts/check-test-policy.mjs';
-import { summarizeMutation } from '../../skills/test-verification/scripts/mutation-test.mjs';
+import { originalCode, summarizeMutation } from '../../skills/test-verification/scripts/mutation-test.mjs';
 import { findFlaky, summarize } from '../../skills/test-verification/scripts/run-tests.mjs';
 import { MARKER, headline, render } from '../../skills/test-report/scripts/render-report.mjs';
 import { summarizeRun } from '../../skills/test-report/scripts/summarize-run.mjs';
@@ -89,6 +89,15 @@ describe('test runs', () => {
     ] } } });
     assert.equal(result.score, 50);
     assert.deepEqual(result.survivors.map((s) => s.line), [1, 3]);
+  });
+});
+
+describe('mutation context', () => {
+  it('extracts the mutated source fragment', () => {
+    const source = 'const a = 1;\nif (x >= 120) return;\n';
+    assert.equal(originalCode(source, { line: 2, column: 5 }, { line: 2, column: 13 }), 'x >= 120');
+    assert.equal(originalCode(source, { line: 1, column: 1 }, { line: 2, column: 3 }), 'const a = 1; if');
+    assert.equal(originalCode(undefined, { line: 1, column: 1 }, { line: 1, column: 2 }), null);
   });
 });
 

@@ -33,7 +33,8 @@ All scripts run tests in a **sanitized environment** (no tokens, `TZ=UTC`) and p
    | --- | --- | --- |
    | Test bug | Wrong import/mock/selector, wrong assumption about existing behavior | Fix the test |
    | Source bug in the PR | Test encodes the documented/obvious intent; the code violates it | **Do not modify source.** Remove that one expectation from the generated tests (proposed tests must pass) and record it in `concerns` with file, line and the failing input |
-   | Regression | A **pre-existing** test fails because of the PR's source change | **Do not modify that test.** Record it in `regressions`. Only if the PR explicitly states the behavior change is intended (PR description, commit message, or an updated spec/test by the author) update the test and mark the decision `updated_tests`, citing the evidence |
+   | Stale test setup | A **pre-existing** test fails to compile or run because the PR added a collaborator, interface member or required field: a mock object misses a new method, a new hook is not mocked, a fixture lacks a new field. The behavior it asserts is unchanged | Update **only the setup** (add the mock/method/field). Keep every existing assertion. Mark the decision `updated_tests` and name the setup change in `reason` |
+   | Regression | A **pre-existing** test's **assertion** fails because the PR changed observable behavior | **Do not modify that test.** Record it in `regressions`. Only if the PR explicitly states the behavior change is intended (PR description, commit message, or an updated spec/test by the author) update the test and mark the decision `updated_tests`, citing the evidence |
    | Environment | Missing generated client, crash before tests run | Report; do not work around by editing config |
 
    Never make a test pass by weakening it: no deleting assertions, no `.skip`, no broad `expect.anything()` where a value is known, no mocking the unit under test.

@@ -1,0 +1,159 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "summary",
+    "decisions",
+    "regressions",
+    "concerns",
+    "selfCheck",
+    "skillsUsed"
+  ],
+  "properties": {
+    "summary": {
+      "type": "string",
+      "maxLength": 600,
+      "description": "One or two sentences: what changed in the PR and what the agent did about tests."
+    },
+    "decisions": {
+      "type": "array",
+      "description": "Exactly one entry per changed source file listed in the task input.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "file",
+          "workspace",
+          "action",
+          "reason",
+          "testFiles"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "Repo-relative path of the changed source file."
+          },
+          "workspace": {
+            "type": "string",
+            "enum": [
+              "backend",
+              "frontend"
+            ]
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "added_tests",
+              "updated_tests",
+              "no_tests_needed",
+              "skipped"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 400,
+            "description": "Why this action: the behavior covered, or why no test is warranted."
+          },
+          "testFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Repo-relative test files created or modified for this source file."
+          },
+          "testCases": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of test cases added or changed for this file."
+          }
+        }
+      }
+    },
+    "regressions": {
+      "type": "array",
+      "description": "Pre-existing tests that fail because of the PR's source changes and were NOT modified, with the evidence.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "test",
+          "sourceFile",
+          "explanation"
+        ],
+        "properties": {
+          "test": {
+            "type": "string"
+          },
+          "sourceFile": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string",
+            "maxLength": 500
+          }
+        }
+      }
+    },
+    "concerns": {
+      "type": "array",
+      "description": "Suspected bugs or risky behavior in the PR's production code discovered while writing tests.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "file",
+          "description"
+        ],
+        "properties": {
+          "file": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500
+          }
+        }
+      }
+    },
+    "selfCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "passed",
+        "iterations"
+      ],
+      "properties": {
+        "passed": {
+          "type": "boolean",
+          "description": "Whether the final verify.mjs self-check passed."
+        },
+        "iterations": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "How many write \u2192 run \u2192 fix iterations were needed."
+        },
+        "mutationScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Final mutation score on changed lines, if measured."
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 400
+        }
+      }
+    },
+    "skillsUsed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Names of the skills invoked during the run."
+    }
+  }
+}

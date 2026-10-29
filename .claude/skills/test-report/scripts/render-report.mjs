@@ -105,8 +105,11 @@ export function render({ detect, report, verification, run, agentOutcome, runUrl
         }
         const survivors = ws.mutation?.survivors ?? [];
         if (survivors.length) {
-          out.push(`<details><summary>${name}: ${survivors.length} undetected mutant(s)</summary>`, '', '| Location | Mutator | Status |', '| --- | --- | --- |');
-          for (const s of survivors.slice(0, 25)) out.push(`| ${code(`${s.file}:${s.line}`)} | ${text(s.mutator)} | ${text(s.status)} |`);
+          out.push(`<details><summary>${name}: ${survivors.length} undetected mutant(s)</summary>`, '', '| Location | Mutation | Status |', '| --- | --- | --- |');
+          for (const s of survivors.slice(0, 25)) {
+            const change = s.original !== undefined && s.original !== null ? `${code(s.original, 60)} → ${code(s.replacement ?? '', 60)}` : text(s.mutator);
+            out.push(`| ${code(`${s.file}:${s.line}`)} | ${change} | ${text(s.status)} |`);
+          }
           out.push('', '</details>', '');
         }
       }

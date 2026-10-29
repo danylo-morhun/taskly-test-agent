@@ -58,7 +58,8 @@ export function verify({ base, head, workspaces: requested = [], baselineDir, mu
     const specFiles = ownTests.filter((path) => TEST_FILE.test(path));
     if (specFiles.length && repeats > 1) {
       const flaky = runTests(name, { files: specFiles, repeat: repeats, shuffle: true });
-      result.flaky = { ok: flaky.success && !flaky.flakyTests.length, repeats, files: specFiles, flakyTests: flaky.flakyTests, failures: flaky.failures.slice(0, 5) };
+      // Flakiness = outcomes that differ between runs. Consistent failures are reported by the main run.
+      result.flaky = { ok: !flaky.crashed && !flaky.flakyTests.length, repeats, files: specFiles, flakyTests: flaky.flakyTests };
       log(`${result.flaky.ok ? 'PASS' : 'FAIL'} ${name}: ${repeats}× shuffled re-runs of ${specFiles.length} changed test file(s)${flaky.flakyTests.length ? ` — flaky: ${flaky.flakyTests.join('; ')}` : ''}`);
     } else {
       result.flaky = { ok: true, skipped: true };

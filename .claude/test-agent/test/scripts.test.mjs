@@ -119,6 +119,8 @@ describe('report', () => {
     assert.equal(headline({ detect, report: null, agentOutcome: 'failure' })[1], 'Agent run did not complete');
     assert.equal(headline({ detect, report, verification: { ...verification, status: 'failed' } })[1], 'Generated tests failed verification');
     assert.equal(headline({ detect, report: { ...report, regressions: [{}] }, verification })[1], 'Possible regression detected');
+    assert.equal(headline({ detect, report: { ...report, regressions: [{}] }, verification: { ...verification, status: 'failed' } })[1], 'Possible regression detected', 'a regression explains the red suite');
+    assert.equal(headline({ detect, report: { ...report, regressions: [{}] }, verification: { ...verification, status: 'failed', policy: { ok: false, files: [] } } })[1], 'Generated tests failed verification', 'policy violations always win');
     assert.equal(headline({ detect, report, verification: { ...verification, policy: { ...verification.policy, files: [] } } })[1], 'No new tests needed');
     assert.equal(headline({ detect, report, verification })[1], 'Tests generated and verified');
   });

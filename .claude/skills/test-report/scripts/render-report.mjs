@@ -36,8 +36,12 @@ export function headline({ detect, report, verification, agentOutcome, testPr })
   if (!report || agentOutcome === 'failure') return ['⚠️', 'Agent run did not complete', 'No tests were proposed. See the workflow run for details.'];
   if (!verification) return ['⚠️', 'Verification did not run', 'Generated tests were not verified and are not proposed.'];
   const changed = verification.policy?.files?.length ?? 0;
+  // A regression explains a red suite better than "verification failed": it is the PR's change, not the agent's tests.
+  if (report.regressions?.length && verification.policy?.ok !== false) {
+    const proposed = verification.status === 'passed' && changed ? ` The other tests are proposed: ${testPr ?? 'see the patch artifact'}.` : '';
+    return ['⚠️', 'Possible regression detected', `Existing tests fail because of this PR — see below. They were intentionally not modified.${proposed}`];
+  }
   if (verification.status !== 'passed') return ['❌', 'Generated tests failed verification', 'The tests are not proposed for merge. The patch is attached to the workflow run for inspection.'];
-  if (report.regressions?.length) return ['⚠️', 'Possible regression detected', 'Existing tests fail because of this PR — see below. They were intentionally not modified.'];
   if (!changed) return ['✅', 'No new tests needed', 'Existing tests already cover the changes, or the changes are not unit-testable.'];
   return ['✅', 'Tests generated and verified', testPr ? `Review and merge the proposed tests: ${testPr}` : 'Apply the patch from the workflow run artifacts.'];
 }

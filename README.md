@@ -134,3 +134,7 @@ Coverage — `backend/coverage/index.html`:
 ```sh
 npm run test:coverage
 ```
+
+## Test agent
+
+This repository includes a Claude Code unit-test agent with reusable skills and an agentic pull-request workflow. See [SOLUTION.md](SOLUTION.md).

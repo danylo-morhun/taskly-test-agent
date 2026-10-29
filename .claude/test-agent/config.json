@@ -1,0 +1,48 @@
+{
+  "workspaces": [
+    {
+      "name": "backend",
+      "root": "backend",
+      "framework": "vitest",
+      "skill": "backend-unit-tests",
+      "sources": ["backend/src/**/*.ts"],
+      "excludeSources": ["backend/src/generated/**", "backend/src/**/types.ts"],
+      "tests": ["backend/tests/**/*.ts"],
+      "protected": [],
+      "testEnv": { "DATABASE_URL": "postgresql://test:test@localhost:5432/test" },
+      "typecheck": ["npm", "run", "typecheck"],
+      "format": null
+    },
+    {
+      "name": "frontend",
+      "root": "frontend",
+      "framework": "vitest",
+      "skill": "frontend-unit-tests",
+      "sources": ["frontend/src/**/*.{ts,tsx}"],
+      "excludeSources": [
+        "frontend/src/main.tsx",
+        "frontend/src/test/**",
+        "frontend/src/**/*.test.{ts,tsx}",
+        "frontend/src/**/*.stories.{ts,tsx}",
+        "frontend/src/**/*.d.ts",
+        "frontend/src/design-system/**",
+        "frontend/src/**/types.ts",
+        "frontend/src/**/*.types.ts",
+        "frontend/src/**/index.ts",
+        "frontend/src/**/constants.{ts,tsx}",
+        "frontend/src/**/*.constants.ts",
+        "frontend/src/features/todos/api/queryKeys.ts",
+        "frontend/src/lib/queryClient.ts"
+      ],
+      "tests": ["frontend/src/**/*.test.{ts,tsx}", "frontend/src/test/**/*.{ts,tsx}"],
+      "protected": ["frontend/src/test/setup.ts"],
+      "testEnv": {},
+      "typecheck": ["npm", "run", "typecheck"],
+      "format": ["npx", "prettier", "--check"]
+    }
+  ],
+  "limits": {
+    "maxSourceFiles": 25,
+    "flakyRepeats": 3
+  }
+}

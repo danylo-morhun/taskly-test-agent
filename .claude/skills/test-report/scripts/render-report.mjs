@@ -81,22 +81,25 @@ export function render({ detect, report, verification, run, agentOutcome, runUrl
       out.push('| Workspace | Typecheck | Tests | Flakiness | Patch coverage (before → after) | Mutation score |', '| --- | --- | --- | --- | --- | --- |');
       for (const [name, ws] of rows) {
         const t = ws.tests ?? {};
-        const tests = t.crashed ? '❌ crashed' : `${mark(t.success)} ${t.passed}/${t.total}`;
+        const tests = t.crashed
+          ? '❌ crashed'
+          : `${mark(t.success)} ${t.passed}/${t.total}${t.failed === 0 && t.thresholdFailure ? ' (coverage thresholds not met)' : ''}`;
         const flaky = ws.flaky?.skipped ? '—' : `${mark(ws.flaky?.ok)} ${ws.flaky?.repeats}× shuffled`;
         const after = ws.patchCoverage?.after;
         const before = ws.patchCoverage?.before;
         const coverage = after && !after.error ? `${before && !before.error ? `${pct(before.percent)} → ` : ''}**${pct(after.percent)}** (${after.covered}/${after.total} lines)` : 'n/a';
         const m = ws.mutation;
-        const mutation = !m ? '—' : m.skipped ? '—' : m.error ? '⚠️ error' : `${pct(m.score)} (${m.detected}/${m.detected + m.undetected})`;
+        const mutation = !m ? '—' : m.skipped ? `— (${text(m.reason ?? 'skipped', 60)})` : m.error ? '⚠️ error' : `${pct(m.score)} (${m.detected}/${m.detected + m.undetected})`;
         out.push(`| ${name} | ${mark(ws.typecheck?.ok)} | ${tests} | ${flaky} | ${coverage} | ${mutation} |`);
       }
       out.push('');
       for (const [name, ws] of rows) {
         const failures = [...(ws.tests?.failures ?? [])].slice(0, 5);
-        if (failures.length || ws.typecheck?.output || ws.format?.output) {
+        if (failures.length || ws.typecheck?.output || ws.format?.output || ws.tests?.thresholdFailure) {
           out.push(`<details><summary>${name}: failure details</summary>`, '', '```text');
           if (ws.typecheck?.output) out.push(ws.typecheck.output.replace(/```/g, "'''").slice(0, 3000));
           if (ws.format?.output) out.push(ws.format.output.replace(/```/g, "'''").slice(0, 1500));
+          if (ws.tests?.thresholdFailure) out.push(ws.tests.thresholdFailure.replace(/```/g, "'''").slice(0, 1500));
           for (const f of failures) out.push(`✗ ${f.file} > ${f.test}`, f.message.replace(/```/g, "'''").slice(0, 1500));
           out.push('```', '', '</details>', '');
         }

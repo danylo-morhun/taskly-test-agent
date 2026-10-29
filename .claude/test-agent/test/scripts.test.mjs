@@ -131,6 +131,15 @@ describe('report', () => {
     assert.ok(!body.includes('<b>hi</b>'));
     assert.ok(!body.includes('@someone'));
   });
+  it('explains threshold-only failures and skipped mutation runs', () => {
+    const failing = structuredClone(verification);
+    Object.assign(failing.workspaces.backend.tests, { success: false, failed: 0, thresholdFailure: 'ERROR: Coverage for lines (80%) does not meet global threshold (95%)' });
+    failing.workspaces.backend.mutation = { skipped: true, reason: 'test suite is failing' };
+    const body = render({ detect, report, verification: failing });
+    assert.ok(body.includes('❌ 10/10 (coverage thresholds not met)'));
+    assert.ok(body.includes('— (test suite is failing)'));
+    assert.ok(body.includes('does not meet global threshold'));
+  });
 });
 
 describe('run summary', () => {

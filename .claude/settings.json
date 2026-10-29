@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(node .claude/skills/test-impact-analysis/scripts/detect-changes.mjs *)",
+      "Bash(node .claude/skills/test-verification/scripts/run-tests.mjs *)",
+      "Bash(node .claude/skills/test-verification/scripts/patch-coverage.mjs *)",
+      "Bash(node .claude/skills/test-verification/scripts/mutation-test.mjs *)",
+      "Bash(node .claude/skills/test-verification/scripts/check-test-policy.mjs *)",
+      "Bash(node .claude/skills/test-verification/scripts/verify.mjs *)",
+      "Bash(node .claude/skills/test-report/scripts/render-report.mjs *)",
+      "Bash(node .claude/skills/test-report/scripts/validate-report.mjs *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git status *)"
+    ]
+  }
+}

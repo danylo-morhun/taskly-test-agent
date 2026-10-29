@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { useNotice } from '../../hooks/useNotice'
 import { todoFixture } from '../../test/todoFixture'
+import { useClearCompletedMutation } from './hooks/useClearCompletedMutation'
 import { useTodoFilters } from './hooks/useTodoFilters'
 import { useTodosBusy } from './hooks/useTodosBusy'
 import { useTodosQuery } from './hooks/useTodosQuery'
@@ -17,6 +18,9 @@ vi.mock('./hooks/useTodosBusy', () => ({ useTodosBusy: vi.fn() }))
 vi.mock('./hooks/useTodosQuery', () => ({ useTodosQuery: vi.fn() }))
 vi.mock('./hooks/useUpdateTodoMutation', () => ({
   useUpdateTodoMutation: vi.fn(),
+}))
+vi.mock('./hooks/useClearCompletedMutation', () => ({
+  useClearCompletedMutation: vi.fn(),
 }))
 vi.mock('./components/TodosHeader', () => ({
   TodosHeader: ({
@@ -132,9 +136,21 @@ vi.mock('../../components/SuccessNotice', () => ({
     <p>Notice: {message || 'none'}</p>
   ),
 }))
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockClearCompleted()
+})
 
 const done: Todo = { ...todoFixture, id: 8, completed: true }
+
+function mockClearCompleted(overrides: Record<string, unknown> = {}) {
+  const clear = { error: null, reset: vi.fn(), mutateAsync: vi.fn() }
+  Object.assign(clear, overrides)
+  vi.mocked(useClearCompletedMutation).mockReturnValue(
+    clear as unknown as ReturnType<typeof useClearCompletedMutation>,
+  )
+  return clear
+}
 
 function setup({
   query = {},
@@ -403,4 +419,82 @@ it('closes the delete dialog without notifying', async () => {
 it('shows the current notice message', () => {
   setup({ message: 'Task deleted.' })
   expect(screen.getByText('Notice: Task deleted.')).toBeVisible()
+})
+
+it('offers to clear the completed tasks of the loaded list', () => {
+  setup({ query: { data: [todoFixture, done, { ...done, id: 9 }] } })
+  expect(
+    screen.getByRole('button', { name: 'Clear completed (2)' }),
+  ).toBeEnabled()
+})
+
+it('hides the clear action when no task is completed', () => {
+  setup({ query: { data: [todoFixture] } })
+  expect(
+    screen.queryByRole('button', { name: /Clear completed/ }),
+  ).not.toBeInTheDocument()
+})
+
+it('disables the clear action while busy', () => {
+  setup({ busy: true })
+  expect(
+    screen.getByRole('button', { name: 'Clear completed (1)' }),
+  ).toBeDisabled()
+})
+
+it('clears completed tasks and notifies with the deleted count', async () => {
+  const user = userEvent.setup()
+  const clear = mockClearCompleted()
+  clear.mutateAsync.mockResolvedValue({ deleted: 3 })
+  const { notify } = setup()
+  await user.click(screen.getByRole('button', { name: 'Clear completed (1)' }))
+  expect(clear.mutateAsync).toHaveBeenCalledTimes(1)
+  await waitFor(() =>
+    expect(notify).toHaveBeenCalledWith('3 completed tasks cleared.'),
+  )
+})
+
+it('does not notify when clearing fails', async () => {
+  const user = userEvent.setup()
+  const clear = mockClearCompleted()
+  clear.mutateAsync.mockRejectedValue(new Error('Offline'))
+  const { notify } = setup()
+  await user.click(screen.getByRole('button', { name: 'Clear completed (1)' }))
+  await waitFor(() => expect(clear.mutateAsync).toHaveBeenCalledTimes(1))
+  expect(notify).not.toHaveBeenCalled()
+})
+
+it('ignores clearing while busy', async () => {
+  const user = userEvent.setup()
+  const clear = mockClearCompleted()
+  setup({ busy: true })
+  // The disabled button blocks the click, and clear() also guards on busy.
+  await user.click(screen.getByRole('button', { name: 'Clear completed (1)' }))
+  expect(clear.mutateAsync).not.toHaveBeenCalled()
+})
+
+it('shows a clear error in preference to a query error', () => {
+  mockClearCompleted({ error: new Error('Clear failed') })
+  setup({ query: { error: new Error('Query failed') } })
+  expect(screen.getByTestId('alert')).toHaveTextContent('Clear failed')
+  expect(screen.getByTestId('alert')).not.toHaveTextContent('Query failed')
+})
+
+it('shows a toggle error in preference to a clear error', () => {
+  mockClearCompleted({ error: new Error('Clear failed') })
+  setup({ mutation: { error: new Error('Toggle failed') } })
+  expect(screen.getByTestId('alert')).toHaveTextContent('Toggle failed')
+  expect(screen.getByTestId('alert')).not.toHaveTextContent('Clear failed')
+})
+
+it('resets the clear error before retrying', async () => {
+  const user = userEvent.setup()
+  const clear = mockClearCompleted({ error: new Error('Clear failed') })
+  const { refetch } = setup()
+  await user.click(screen.getByRole('button', { name: 'Try again' }))
+  await waitFor(() => expect(refetch).toHaveBeenCalledTimes(1))
+  expect(clear.reset).toHaveBeenCalledTimes(1)
+  expect(clear.reset.mock.invocationCallOrder[0]).toBeLessThan(
+    refetch.mock.invocationCallOrder[0],
+  )
 })

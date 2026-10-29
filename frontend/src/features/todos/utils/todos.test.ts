@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  clearedNotice,
+  countCompleted,
   formatDate,
   isOverdue,
   priorityLabels,
@@ -179,6 +181,30 @@ describe('isOverdue', () => {
 describe('formatDate', () => {
   it('formats an ISO date in British style', () => {
     expect(formatDate('2026-10-05')).toBe('5 Oct 2026')
+  })
+})
+
+describe('countCompleted', () => {
+  it('counts only completed tasks', () => {
+    const done = { ...base, id: 2, completed: true }
+    const alsoDone = { ...base, id: 3, completed: true }
+    expect(countCompleted([base, done, alsoDone])).toBe(2)
+  })
+
+  it('returns zero for no completed tasks or an empty list', () => {
+    expect(countCompleted([base])).toBe(0)
+    expect(countCompleted([])).toBe(0)
+  })
+})
+
+describe('clearedNotice', () => {
+  it.each([
+    [0, 'No completed tasks to clear.'],
+    [1, '1 completed task cleared.'],
+    [2, '2 completed tasks cleared.'],
+    [3, '3 completed tasks cleared.'],
+  ])('describes clearing %i tasks', (count, expected) => {
+    expect(clearedNotice(count)).toBe(expected)
   })
 })
 

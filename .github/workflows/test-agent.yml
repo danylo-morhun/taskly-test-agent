@@ -236,23 +236,25 @@ jobs:
         if: always() && steps.agent.outcome != 'skipped'
         env:
           EXECUTION_FILE: ${{ steps.agent.outputs.execution_file }}
+          OUT: ${{ runner.temp }}/out
         run: |
-          mkdir -p out
-          cp .test-agent/detect.json out/
-          [ -f .test-agent/report.json ] && cp .test-agent/report.json out/ || echo "::warning::Agent did not write a report"
+          # Outside the checkout, so run output can never end up in the proposed patch.
+          mkdir -p "$OUT"
+          cp .test-agent/detect.json "$OUT/"
+          [ -f .test-agent/report.json ] && cp .test-agent/report.json "$OUT/" || echo "::warning::Agent did not write a report"
           if [ -n "$EXECUTION_FILE" ] && [ -f "$EXECUTION_FILE" ]; then
-            node .claude/skills/test-report/scripts/summarize-run.mjs --execution-file "$EXECUTION_FILE" --json-out out/run.json > /dev/null
+            node .claude/skills/test-report/scripts/summarize-run.mjs --execution-file "$EXECUTION_FILE" --json-out "$OUT/run.json" > /dev/null
           fi
           # The proposal = every working-tree change except agent config restored by the action
           # (.test-agent/ is git-ignored scratch space).
           git add -A -- . ':!.claude' ':!.claude-pr'
-          git diff --cached --binary HEAD > out/tests.patch
+          git diff --cached --binary HEAD > "$OUT/tests.patch"
           git diff --cached --stat HEAD
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always() && steps.agent.outcome != 'skipped'
         with:
           name: test-agent-output
-          path: out
+          path: ${{ runner.temp }}/out
           retention-days: 14
 
   verify:

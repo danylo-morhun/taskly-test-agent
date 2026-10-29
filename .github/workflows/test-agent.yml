@@ -197,6 +197,16 @@ jobs:
             git checkout -q -- . && git clean -fdq -e .test-agent -e node_modules
             echo "applied=false" >> "$GITHUB_OUTPUT"
           fi
+      - name: Install subprocess sandbox (bubblewrap)
+        # Required by CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: commands Claude runs get a scrubbed
+        # environment and their own PID namespace, so PR code cannot read the token.
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends bubblewrap socat
+          # Ubuntu 24.04+ restricts unprivileged user namespaces via AppArmor.
+          if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
       - name: Run unit-test-agent
         id: agent
         uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
@@ -233,8 +243,9 @@ jobs:
           if [ -n "$EXECUTION_FILE" ] && [ -f "$EXECUTION_FILE" ]; then
             node .claude/skills/test-report/scripts/summarize-run.mjs --execution-file "$EXECUTION_FILE" --json-out out/run.json > /dev/null
           fi
-          # The proposal = every working-tree change except agent config restored by the action.
-          git add -A -- . ':!.claude' ':!.claude-pr' ':!.test-agent'
+          # The proposal = every working-tree change except agent config restored by the action
+          # (.test-agent/ is git-ignored scratch space).
+          git add -A -- . ':!.claude' ':!.claude-pr'
           git diff --cached --binary HEAD > out/tests.patch
           git diff --cached --stat HEAD
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

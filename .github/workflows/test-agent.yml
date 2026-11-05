@@ -49,7 +49,7 @@ jobs:
       eligible: ${{ steps.pr.outputs.eligible }}
       skip-reason: ${{ steps.pr.outputs.skip-reason }}
     steps:
-      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+      - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -100,7 +100,7 @@ jobs:
       workspaces: ${{ steps.detect.outputs.workspaces }}
       test-workspaces: ${{ steps.detect.outputs.test-workspaces }}
     steps:
-      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+      - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
         with:
           egress-policy: audit
       - name: Checkout PR head (untrusted)
@@ -151,7 +151,7 @@ jobs:
     outputs:
       outcome: ${{ steps.agent.outcome }}
     steps:
-      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+      - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
         with:
           egress-policy: audit
       - name: Check credentials
@@ -219,7 +219,7 @@ jobs:
           fi
       - name: Run unit-test-agent
         id: agent
-        uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
+        uses: anthropics/claude-code-action@ae68417a745a5df4b2124873632bd73a2255e6f6 # v1.0.259
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -282,7 +282,7 @@ jobs:
       status: ${{ steps.verify.outputs.status }}
       report-valid: ${{ steps.report.outputs.valid }}
     steps:
-      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+      - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
         with:
           egress-policy: audit
       - name: Checkout PR head (untrusted)
@@ -374,7 +374,7 @@ jobs:
       contents: write # fallback when no GitHub App is configured (push the test branch)
       pull-requests: write # sticky report comment and the test PR
     steps:
-      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+      - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
         with:
           egress-policy: audit
       - name: Checkout base tooling (trusted; no PR code is executed in this job)
@@ -443,7 +443,7 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+      - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

@@ -79,3 +79,7 @@ npm run test:agent-tooling
 ```
 
 the `verify.mjs` call runs the same checks as CI.
+
+## license
+
+MIT

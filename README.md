@@ -1,140 +1,81 @@
-# Taskly App Node
+# taskly-test-agent
 
-## Setup
+Claude Code agent that writes unit tests for pull requests, with a GitHub Actions workflow
+that runs it. it is built on Taskly, a small todo app with an Express backend
+and a React frontend.
 
-```sh
-cp .env.example .env
+on every pull request the agent decides which changed files need tests, writes or updates them,
+checks them with coverage and mutation testing, and opens a separate pull request with the tests
+into the feature branch. it never changes production code. a report is posted as one comment
+on the original pull request.
+
+the full write-up with design decisions, the security model and example runs is in
+[SOLUTION.md](SOLUTION.md).
+
+## agent and skills
+
+| file                                | what it is                                                              |
+| :---------------------------------- | :---------------------------------------------------------------------- |
+| `.claude/agents/unit-test-agent.md` | the agent: role, order of skills, rules, output format                  |
+| `test-impact-analysis`              | decides per changed file whether it needs tests                         |
+| `backend-unit-tests`                | how to write backend tests, with reference patterns                     |
+| `frontend-unit-tests`               | how to write frontend tests, with reference patterns                    |
+| `test-verification`                 | runs tests, typecheck, patch coverage and mutation testing              |
+| `test-report`                       | writes the final report and validates it against a JSON schema          |
+| `.claude/hooks/`                    | block writes outside test files and shell commands outside an allowlist |
+| `.claude/test-agent/`               | config, shared scripts and their own `node:test` tests                  |
+
+## workflow
+
+`.github/workflows/test-agent.yml` runs in five jobs.
+
+| job      | what it does                                                                                               |
+| :------- | :--------------------------------------------------------------------------------------------------------- |
+| context  | finds the pull request. skips forks, drafts, the `test-agent:skip` label and the agent's own pull requests |
+| detect   | classifies changed files without an LLM. with nothing to test, the agent is not called                     |
+| generate | runs the agent. this is the only job with the LLM key, and its GitHub token is read-only                   |
+| verify   | checks the agent's patch again from scratch, with no secrets and with tooling from the base branch         |
+| publish  | pushes the tests and updates the report comment, without running code from the pull request                |
+
+closing a pull request closes its test pull request and deletes the branch.
+
+## setup
+
+the workflow needs a repository secret `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`.
+for the test pull requests, add a GitHub App with read and write access to contents
+and pull requests, then set the variable `TEST_AGENT_APP_CLIENT_ID` and the secret
+`TEST_AGENT_APP_PRIVATE_KEY`. the variable `TEST_AGENT_MODEL` changes the model.
+
+the agent has to be on the default branch, because pull requests are checked
+with the base branch's version of it. it can also be run by hand:
+
+```bash
+gh workflow run test-agent.yml -f pr=<number>
 ```
 
-## Docker
+## Taskly
 
-```sh
+the app is a todo list.
+
+| part     | stack                                                     |
+| :------- | :-------------------------------------------------------- |
+| backend  | Node.js, Express 5, Prisma 7, Zod, Postgres, Vitest       |
+| frontend | React 19, TanStack Query, styled-components, Vite, Vitest |
+
+```bash
+cp .env.example .env
 docker compose up --build -d --wait
 ```
 
-Application: http://localhost:8080. API: http://localhost:8000/docs.
+the app runs at `http://localhost:8080`, the API docs at `http://localhost:8000/docs`.
 
-```sh
-docker compose down
+## run the agent locally
+
+```bash
+(cd backend && npm ci) && (cd frontend && npm ci)
+claude --agent unit-test-agent --settings .claude/test-agent/agent-settings.json "PR mode. Base: origin/main."
+node .claude/skills/test-verification/scripts/verify.mjs --base origin/main --mutation
+npm run test:agent-tooling
 ```
 
-## Frontend
-
-React + TypeScript + Vite. Tests: Vitest + React Testing Library.
-
-Installation:
-
-```sh
-cd frontend
-npm ci
-```
-
-Development — http://localhost:5173:
-
-```sh
-npm run dev
-```
-
-Storybook — http://localhost:6006:
-
-```sh
-npm run storybook
-```
-
-Tests:
-
-```sh
-npm test
-```
-
-Coverage — `frontend/coverage/index.html`:
-
-```sh
-npm run test:coverage
-```
-
-## Backend
-
-Node.js + TypeScript + Express. Database: PostgreSQL + Prisma ORM. Tests: Vitest + Supertest.
-
-Requires Node.js >=22.12 and PostgreSQL.
-
-Installation:
-
-```sh
-cd backend
-npm ci
-```
-
-Database — run from the repository root:
-
-```sh
-docker compose up -d --wait postgres
-```
-
-Development — http://localhost:8000/docs (from `backend`):
-
-```sh
-npm run dev
-```
-
-Production:
-
-```sh
-npm run build
-npm start
-```
-
-### Database (Prisma ORM)
-
-Schema — `backend/prisma/schema.prisma`. Connection — root `.env`.
-
-Validate schema:
-
-```sh
-npm run db:validate
-```
-
-Generate client — also runs during installation and build:
-
-```sh
-npm run db:generate
-```
-
-Database browser:
-
-```sh
-npm run db:studio
-```
-
-Schema migrations are managed separately; generating the client does not update the database.
-
-### Tests and coverage
-
-Type check:
-
-```sh
-npm run typecheck
-```
-
-Tests:
-
-```sh
-npm test
-```
-
-Watch mode:
-
-```sh
-npm run test:watch
-```
-
-Coverage — `backend/coverage/index.html`:
-
-```sh
-npm run test:coverage
-```
-
-## Test agent
-
-This repository includes a Claude Code unit-test agent with reusable skills and an agentic pull-request workflow. See [SOLUTION.md](SOLUTION.md).
+the `verify.mjs` call runs the same checks as CI.

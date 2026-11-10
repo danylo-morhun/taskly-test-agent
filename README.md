@@ -1,8 +1,8 @@
-# taskly-test-agent
+# unitbot
 
 Claude Code agent that writes unit tests for pull requests, with a GitHub Actions workflow
 that runs it. it is built on Taskly, a small todo app with an Express backend
-and a React frontend.
+and a React frontend. it was built as a take-home assignment.
 
 on every pull request the agent decides which changed files need tests, writes or updates them,
 checks them with coverage and mutation testing, and opens a separate pull request with the tests

@@ -1,5 +1,5 @@
 {
-  "name": "taskly-test-agent",
+  "name": "unitbot",
   "private": true,
   "description": "Repository root: backend/ and frontend/ are independent npm projects; this file only hosts repo-level tooling scripts.",
   "type": "module",
